@@ -36,8 +36,8 @@
 
        
         // Recuperar tipo de usuario y ID desde localStorage
-        const tipoUsuario = localStorage.getItem('tipoUsuario');
-        const userId = localStorage.getItem('userId');
+        const tipoUsuario = localStorage.getItem('tipoUsuario', "profesor");
+        const userId = localStorage.getItem('userId', "60");
 
         console.log("Tipo de Usuario:", tipoUsuario);
         console.log("User ID:", userId);
