@@ -5,20 +5,19 @@ import cors from "cors";
 import {pool} from './dbconfig.js';
 
 
-app.get("/", (req, res) => {
-  res.send("Proyecto Learnhub está funcionando!");
-});
-
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 app.listen(port, () => {
     console.log(`Learnhub escuchando en el puerto ${port}!`);
   });
   
+  app.get("/", (req, res) => {
+    res.send("Proyecto Learnhub está funcionando!");
+  });
   
-  
+
 // Middleware para JSON y CORS
 app.use(express.json());
 app.use(cors({
