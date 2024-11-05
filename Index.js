@@ -4,6 +4,21 @@ import express from "express";
 import cors from "cors";
 import {pool} from './dbconfig.js';
 
+
+app.get("/", (req, res) => {
+  res.send("Proyecto Learnhub está funcionando!");
+});
+
+
+const app = express();
+const port = 3000;
+
+app.listen(port, () => {
+    console.log(`Learnhub escuchando en el puerto ${port}!`);
+  });
+  
+  
+  
 // Middleware para JSON y CORS
 app.use(express.json());
 app.use(cors({
@@ -98,16 +113,3 @@ app.get('/api/chats', async (req, res) => {
 });
 
 
-app.get("/", (req, res) => {
-  res.send("Proyecto Learnhub está funcionando!");
-});
-
-
-const app = express();
-const port = 3000;
-
-app.listen(port, () => {
-    console.log(`Learnhub escuchando en el puerto ${port}!`);
-  });
-  
-  
