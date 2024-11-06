@@ -19,6 +19,7 @@
                 <input type="text" id="messageInput" placeholder="Escribe un mensaje" required>
                 <button type="submit">Enviar</button>
             </form>
+            <input type="number">
         </div>
     </div>
 
@@ -34,22 +35,17 @@
 
         let currentChat = null;
 
-        // Verificar la conexión del socket
         socket.on('connect', () => {
             console.log("Conectado al servidor de chat.");
         });
 
-        // Recuperar tipo de usuario y ID desde localStorage
-        const tipoUsuario = localStorage.getItem('tipoUsuario') || 'profesor';
-        const userId = localStorage.getItem('userId') || '60';
+        const tipoUsuario = localStorage.getItem('tipoUsuario');
+        const userId = localStorage.getItem('userId') 
 
         console.log("Tipo de Usuario:", tipoUsuario);
         console.log("User ID:", userId);
 
-        // Para probar sin seleccionar un chat, establecemos un chat ficticio predeterminado:
-        currentChat = { idprof: 60, idalumno: 100 }; 
-
-        // Cargar un chat de prueba (esto es solo para pruebas, no es necesario seleccionar un chat)
+        // Cargar un chat 
         function loadChat(idprof, idalumno) {
             console.log("Cargando chat para:", idprof, idalumno);
             fetch(`https://chatlearnhub.onrender.com/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
@@ -60,14 +56,14 @@
                     return response.json();
                 })
                 .then(messages => {
-                    messageList.innerHTML = ''; // Limpiar mensajes previos
+                    messageList.innerHTML = ''; 
                     messages.forEach(message => {
                         const messageItem = document.createElement('div');
                         messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
                         messageItem.classList.add('message-item', message.sender === 'me' ? 'sent' : 'received');
                         messageList.appendChild(messageItem);
                     });
-                    messageList.scrollTop = messageList.scrollHeight; // Scroll al final
+                    messageList.scrollTop = messageList.scrollHeight; 
                 })
                 .catch(error => {
                     console.error("Error al cargar mensajes:", error);
@@ -116,6 +112,9 @@
                 messageList.scrollTop = messageList.scrollHeight; // Scroll al final
             }
         });
+
+        // Input 
+
     </script>
 </body>
 </html>
