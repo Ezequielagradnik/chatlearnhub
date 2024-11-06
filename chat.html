@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -34,46 +34,24 @@
 
         let currentChat = null;
 
-       
+        // Verificar la conexión del socket
+        socket.on('connect', () => {
+            console.log("Conectado al servidor de chat.");
+        });
+
         // Recuperar tipo de usuario y ID desde localStorage
-        const tipoUsuario = localStorage.getItem('tipoUsuario', "profesor");
-        const userId = localStorage.getItem('userId', "60");
+        const tipoUsuario = localStorage.getItem('tipoUsuario') || 'profesor';
+        const userId = localStorage.getItem('userId') || '60';
 
         console.log("Tipo de Usuario:", tipoUsuario);
         console.log("User ID:", userId);
 
-        fetch(`https://chatlearnhub.onrender.com/api/chats?userId=${userId}&tipoUsuario=${tipoUsuario}`)
-            .then(response => {
-              console.log("Respuesta de la API:", response); 
-                if (!response.ok) {
-                    throw new Error('Error en la red: ' + response.statusText);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log(data);
-                if (Array.isArray(data) && data.length > 0) {
-                    data.forEach(chat => {
-                        const chatItem = document.createElement('div');
-                        chatItem.textContent = chat.nombre;
-                        chatItem.classList.add('chat-item');
-                        chatItem.addEventListener('click', () => {
-                            loadChat(chat.idprof, chat.idalumno);
-                        });
-                        chatList.appendChild(chatItem);
-                    });
-                } else {
-                    errorMessage.textContent = "No se encontraron chats disponibles.";
-                }
-            })
-            .catch(error => {
-                console.error("Error al cargar la lista de chats:", error);
-                errorMessage.textContent = "Error al cargar la lista de chats. Intente de nuevo más tarde.";
-            });
+        // Para probar sin seleccionar un chat, establecemos un chat ficticio predeterminado:
+        currentChat = { idprof: 60, idalumno: 100 }; 
 
-        // Función para cargar el historial de un chat
+        // Cargar un chat de prueba (esto es solo para pruebas, no es necesario seleccionar un chat)
         function loadChat(idprof, idalumno) {
-            currentChat = { idprof, idalumno };
+            console.log("Cargando chat para:", idprof, idalumno);
             fetch(`https://chatlearnhub.onrender.com/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
                 .then(response => {
                     if (!response.ok) {
@@ -82,7 +60,7 @@
                     return response.json();
                 })
                 .then(messages => {
-                    messageList.innerHTML = '';
+                    messageList.innerHTML = ''; // Limpiar mensajes previos
                     messages.forEach(message => {
                         const messageItem = document.createElement('div');
                         messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
@@ -97,6 +75,9 @@
                 });
         }
 
+        // Cargar el chat de prueba al inicio (aunque no sea necesario)
+        loadChat(currentChat.idprof, currentChat.idalumno);
+
         // Enviar un mensaje
         messageForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -106,7 +87,10 @@
                     idalumno: currentChat.idalumno,
                     content: messageInput.value
                 };
-                socket.emit('chat message', message);
+
+                console.log("Enviando mensaje:", message);
+
+                socket.emit('chat message', message); // Enviar el mensaje al servidor
 
                 // Mostrar el mensaje inmediatamente en la interfaz
                 const messageItem = document.createElement('div');
@@ -116,11 +100,14 @@
                 messageList.scrollTop = messageList.scrollHeight; // Scroll al final
 
                 messageInput.value = ''; // Limpiar el campo de entrada
+            } else {
+                console.log("No hay mensaje o chat seleccionado.");
             }
         });
 
         // Escuchar mensajes entrantes
         socket.on('chat message', (message) => {
+            console.log("Mensaje recibido:", message);
             if (message.idprof === currentChat.idprof && message.idalumno === currentChat.idalumno) {
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
