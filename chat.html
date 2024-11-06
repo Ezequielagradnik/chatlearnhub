@@ -13,7 +13,8 @@
                 <option value="alumno">Alumno</option>
                 <option value="profesor">Profesor</option>
             </select>
-            <input type="number" id="userIdInput" placeholder="ID de usuario" required>
+            <input type="number" id="userIdInput" placeholder="Tu ID de usuario" required>
+            <input type="number" id="otherUserIdInput" placeholder="ID del otro usuario" required>
             <button id="loginButton">Iniciar sesión</button>
         </div>
         
@@ -33,7 +34,7 @@
 
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
-    
+
         const socket = io("https://chatlearnhub.onrender.com");
         const chatList = document.getElementById('chatList');
         const messageList = document.getElementById('messageList');
@@ -44,23 +45,27 @@
         const loginButton = document.getElementById('loginButton');
         const tipoUsuarioSelect = document.getElementById('tipoUsuario');
         const userIdInput = document.getElementById('userIdInput');
+        const otherUserIdInput = document.getElementById('otherUserIdInput');
         
         let currentChat = null;
-    
+
         loginButton.addEventListener('click', () => {
             const tipoUsuario = tipoUsuarioSelect.value;
             const userId = userIdInput.value;
-    
-            if (!userId) {
-                errorMessage.textContent = "Por favor, ingresa tu ID.";
+            const otherUserId = otherUserIdInput.value;
+
+            if (!userId || !otherUserId) {
+                errorMessage.textContent = "Por favor, ingresa tu ID y el ID del otro usuario.";
                 return;
             }
-    
+
             localStorage.setItem('tipoUsuario', tipoUsuario);
             localStorage.setItem('userId', userId);
-    
-            console.log("Tipo de Usuario:", tipoUsuario);
-            console.log("User ID:", userId);
+            localStorage.setItem('otherUserId', otherUserId);
+
+            // Crea una sala única para el chat
+            const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
+            socket.emit('joinRoom', room);
             
             loadChatsForUser(tipoUsuario, userId);
         });
@@ -114,30 +119,34 @@
             event.preventDefault();
             const tipoUsuario = localStorage.getItem('tipoUsuario');
             const userId = localStorage.getItem('userId');
-    
+            const otherUserId = localStorage.getItem('otherUserId');
+            const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
+
             if (messageInput.value) {
                 if (!currentChat) {
-                    // Crear un nuevo chat al enviar el primer mensaje
+                    // Crear un nuevo chat usando el ID del otro usuario ingresado
                     currentChat = {
-                        idprof: tipoUsuario === 'profesor' ? userId : null,
-                        idalumno: tipoUsuario === 'alumno' ? userId : null
+                        idprof: tipoUsuario === 'profesor' ? userId : otherUserId,
+                        idalumno: tipoUsuario === 'alumno' ? userId : otherUserId
                     };
                 }
-    
+
                 const message = {
                     idprof: currentChat.idprof,
                     idalumno: currentChat.idalumno,
-                    content: messageInput.value
+                    content: messageInput.value,
+                    room: room
                 };
-    
+
+                // Emite el mensaje a la sala específica
                 socket.emit('chat message', message);
-    
+
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date().toLocaleString()}`;
                 messageItem.classList.add('message-item', 'sent');
                 messageList.appendChild(messageItem);
                 messageList.scrollTop = messageList.scrollHeight;
-    
+
                 messageInput.value = '';
             } else {
                 console.log("No hay mensaje para enviar.");
@@ -145,7 +154,8 @@
         });
     
         socket.on('chat message', (message) => {
-            if (currentChat && message.idprof === currentChat.idprof && message.idalumno === currentChat.idalumno) {
+            const room = `${Math.min(message.idprof, message.idalumno)}-${Math.max(message.idprof, message.idalumno)}`;
+            if (currentChat && message.room === room) {
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
                 messageItem.classList.add('message-item', 'received');
@@ -154,6 +164,5 @@
             }
         });
     </script>
-    
 </body>
 </html>
