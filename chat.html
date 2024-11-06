@@ -8,6 +8,15 @@
 </head>
 <body>
     <div class="chat-container">
+        <div class="login-container">
+            <select id="tipoUsuario">
+                <option value="alumno">Alumno</option>
+                <option value="profesor">Profesor</option>
+            </select>
+            <input type="number" id="userIdInput" placeholder="ID de usuario" required>
+            <button id="loginButton">Iniciar sesión</button>
+        </div>
+        
         <div class="chat-list" id="chatList">
             <h3>Chats</h3>
             <div id="errorMessage" style="color: red;"></div>
@@ -19,102 +28,132 @@
                 <input type="text" id="messageInput" placeholder="Escribe un mensaje" required>
                 <button type="submit">Enviar</button>
             </form>
-            <input type="number">
         </div>
     </div>
 
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
-
+    
         const socket = io("https://chatlearnhub.onrender.com");
         const chatList = document.getElementById('chatList');
         const messageList = document.getElementById('messageList');
         const messageForm = document.getElementById('messageForm');
         const messageInput = document.getElementById('messageInput');
         const errorMessage = document.getElementById('errorMessage');
-
+        
+        const loginButton = document.getElementById('loginButton');
+        const tipoUsuarioSelect = document.getElementById('tipoUsuario');
+        const userIdInput = document.getElementById('userIdInput');
+        
         let currentChat = null;
-
+    
+        loginButton.addEventListener('click', () => {
+            const tipoUsuario = tipoUsuarioSelect.value;
+            const userId = userIdInput.value;
+    
+            if (!userId) {
+                errorMessage.textContent = "Por favor, ingresa tu ID.";
+                return;
+            }
+    
+            localStorage.setItem('tipoUsuario', tipoUsuario);
+            localStorage.setItem('userId', userId);
+    
+            console.log("Tipo de Usuario:", tipoUsuario);
+            console.log("User ID:", userId);
+            
+            loadChatsForUser(tipoUsuario, userId);
+        });
+    
         socket.on('connect', () => {
             console.log("Conectado al servidor de chat.");
         });
-
-        const tipoUsuario = localStorage.getItem('tipoUsuario');
-        const userId = localStorage.getItem('userId') 
-
-        console.log("Tipo de Usuario:", tipoUsuario);
-        console.log("User ID:", userId);
-
-        // Cargar un chat 
-        function loadChat(idprof, idalumno) {
-            console.log("Cargando chat para:", idprof, idalumno);
-            fetch(`https://chatlearnhub.onrender.com/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la red: ' + response.statusText);
-                    }
-                    return response.json();
+    
+        function loadChatsForUser(tipoUsuario, userId) {
+            fetch(`https://chatlearnhub.onrender.com/api/chats?tipoUsuario=${tipoUsuario}&userId=${userId}`)
+                .then(response => response.json())
+                .then(chats => {
+                    chatList.innerHTML = '<h3>Chats</h3>';
+                    chats.forEach(chat => {
+                        const chatItem = document.createElement('div');
+                        chatItem.textContent = `${chat.nombreCompleto}`;
+                        chatItem.classList.add('chat-item');
+                        chatItem.addEventListener('click', () => {
+                            currentChat = chat;
+                            loadChat(chat.idprof, chat.idalumno);
+                        });
+                        chatList.appendChild(chatItem);
+                    });
                 })
+                .catch(error => {
+                    console.error("Error al cargar chats:", error);
+                    errorMessage.textContent = "Error al cargar la lista de chats.";
+                });
+        }
+    
+        function loadChat(idprof, idalumno) {
+            fetch(`https://chatlearnhub.onrender.com/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
+                .then(response => response.json())
                 .then(messages => {
-                    messageList.innerHTML = ''; 
+                    messageList.innerHTML = '';
                     messages.forEach(message => {
                         const messageItem = document.createElement('div');
                         messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
                         messageItem.classList.add('message-item', message.sender === 'me' ? 'sent' : 'received');
                         messageList.appendChild(messageItem);
                     });
-                    messageList.scrollTop = messageList.scrollHeight; 
+                    messageList.scrollTop = messageList.scrollHeight;
                 })
                 .catch(error => {
                     console.error("Error al cargar mensajes:", error);
-                    errorMessage.textContent = "Error al cargar mensajes. Intente de nuevo más tarde.";
+                    errorMessage.textContent = "Error al cargar mensajes.";
                 });
         }
-
-        // Cargar el chat de prueba al inicio (aunque no sea necesario)
-        loadChat(currentChat.idprof, currentChat.idalumno);
-
-        // Enviar un mensaje
+    
         messageForm.addEventListener('submit', (event) => {
             event.preventDefault();
-            if (messageInput.value && currentChat) {
+            const tipoUsuario = localStorage.getItem('tipoUsuario');
+            const userId = localStorage.getItem('userId');
+    
+            if (messageInput.value) {
+                if (!currentChat) {
+                    // Crear un nuevo chat al enviar el primer mensaje
+                    currentChat = {
+                        idprof: tipoUsuario === 'profesor' ? userId : null,
+                        idalumno: tipoUsuario === 'alumno' ? userId : null
+                    };
+                }
+    
                 const message = {
                     idprof: currentChat.idprof,
                     idalumno: currentChat.idalumno,
                     content: messageInput.value
                 };
-
-                console.log("Enviando mensaje:", message);
-
-                socket.emit('chat message', message); // Enviar el mensaje al servidor
-
-                // Mostrar el mensaje inmediatamente en la interfaz
+    
+                socket.emit('chat message', message);
+    
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date().toLocaleString()}`;
                 messageItem.classList.add('message-item', 'sent');
                 messageList.appendChild(messageItem);
-                messageList.scrollTop = messageList.scrollHeight; // Scroll al final
-
-                messageInput.value = ''; // Limpiar el campo de entrada
+                messageList.scrollTop = messageList.scrollHeight;
+    
+                messageInput.value = '';
             } else {
-                console.log("No hay mensaje o chat seleccionado.");
+                console.log("No hay mensaje para enviar.");
             }
         });
-
-        // Escuchar mensajes entrantes
+    
         socket.on('chat message', (message) => {
-            console.log("Mensaje recibido:", message);
-            if (message.idprof === currentChat.idprof && message.idalumno === currentChat.idalumno) {
+            if (currentChat && message.idprof === currentChat.idprof && message.idalumno === currentChat.idalumno) {
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
                 messageItem.classList.add('message-item', 'received');
                 messageList.appendChild(messageItem);
-                messageList.scrollTop = messageList.scrollHeight; // Scroll al final
+                messageList.scrollTop = messageList.scrollHeight;
             }
         });
-
-        // Input 
-
     </script>
+    
 </body>
 </html>
