@@ -2,9 +2,7 @@ import { Server } from "socket.io";
 import { createServer } from "node:http";
 import express from "express";
 import cors from "cors";
-import {pool} from './dbconfig.js'
-
-
+import { pool } from './dbconfig.js';
 
 const app = express();
 const port = 3001;
@@ -17,17 +15,14 @@ const io = new Server(server, {
   }
 });
 
-
-  
-  app.get("/", (req, res) => {
-    res.send("Proyecto Learnhub está funcionando!");
-  });
-  
+app.get("/", (req, res) => {
+  res.send("Proyecto Learnhub está funcionando!");
+});
 
 // Middleware para JSON y CORS
 app.use(express.json());
 app.use(cors({
-  origin: "*", // origen permitido
+  origin: "*",
   methods: ['GET', 'POST', 'OPTIONS']
 }));
 
@@ -35,28 +30,29 @@ app.use(cors({
 io.on('connection', (socket) => {
   console.log("Usuario conectado");
 
-
-    // Evento para unirse a una sala
-    socket.on("joinRoom", (room) => {
-      console.log(`El usuario se unió a la sala: ${room}`);
-      socket.join(room);
+  // Evento para unirse a una sala
+  socket.on("joinRoom", (room) => {
+    console.log(`El usuario se unió a la sala: ${room}`);
+    socket.join(room);
   });
 
+  // Manejar el evento de mensaje
   socket.on("chat message", (message) => {
-      console.log('Mensaje recibido en el backend:', message);
+    console.log('Mensaje recibido en el backend:', message);
     message.timestamp = new Date().toISOString();
 
-      io.to(message.room).emit("chat message", message);
-      console.log(`Mensaje reenviado a la sala: ${message.room}`);
+    // Determinar el remitente y agregarlo al mensaje
+    const sender = message.idprof === parseInt(message.senderId) ? 'profesor' : 'alumno';
+    message.sender = sender;
+
+    // Emitir el mensaje a la sala específica
+    io.to(message.room).emit("chat message", message);
+    console.log(`Mensaje reenviado a la sala: ${message.room}`);
   });
 
   socket.on("disconnect", () => {
     console.log("Usuario desconectado");
   });
-});
-
-server.listen(port, () => {
-  console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
 });
 
 // Manejador POST para guardar un mensaje y emitirlo con Socket.IO
@@ -73,12 +69,18 @@ app.post('/api/messages', async (req, res) => {
     );
     const messageId = result.rows[0].id;
 
-    io.emit("chat message", {
+    // Determina el remitente en función de los IDs
+    const sender = idprof === parseInt(req.body.senderId) ? 'profesor' : 'alumno';
+
+    // Emite el mensaje a la sala específica
+    io.to(req.body.room).emit("chat message", {
       id: messageId,
       idprof,
       idalumno,
       content,
-      timestamp: new Date()
+      timestamp: new Date(),
+      sender, // Incluye el remitente
+      room: req.body.room
     });
 
     res.status(201).json({ id: messageId });
@@ -128,4 +130,6 @@ app.get('/api/chats', async (req, res) => {
   }
 });
 
-
+server.listen(port, () => {
+  console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
+});
