@@ -35,7 +35,7 @@
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
 
-        const socket = io("https://chatlearnhub.onrender.com");
+        const socket = io("http://localhost:3001");
         const chatList = document.getElementById('chatList');
         const messageList = document.getElementById('messageList');
         const messageForm = document.getElementById('messageForm');
@@ -75,7 +75,7 @@
         });
     
         function loadChatsForUser(tipoUsuario, userId) {
-            fetch(`https://chatlearnhub.onrender.com/api/chats?tipoUsuario=${tipoUsuario}&userId=${userId}`)
+            fetch(`http://localhost:3001/api/chats?tipoUsuario=${tipoUsuario}&userId=${userId}`)
                 .then(response => response.json())
                 .then(chats => {
                     chatList.innerHTML = '<h3>Chats</h3>';
@@ -97,7 +97,7 @@
         }
     
         function loadChat(idprof, idalumno) {
-            fetch(`https://chatlearnhub.onrender.com/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
+            fetch(`http://localhost:3001/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
                 .then(response => response.json())
                 .then(messages => {
                     messageList.innerHTML = '';

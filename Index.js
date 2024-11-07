@@ -2,16 +2,22 @@ import { Server } from "socket.io";
 import { createServer } from "node:http";
 import express from "express";
 import cors from "cors";
-import {pool} from './dbconfig.js';
+import {pool} from './dbconfig.js'
 
 
 
 const app = express();
 const port = 3001;
 
-app.listen(port, () => {
-    console.log(`Learnhub escuchando en el puerto ${port}!`);
-  });
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+
   
   app.get("/", (req, res) => {
     res.send("Proyecto Learnhub está funcionando!");
@@ -25,21 +31,31 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS']
 }));
 
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
 // CHAT: 
 io.on('connection', (socket) => {
   console.log("Usuario conectado");
 
+
+    // Evento para unirse a una sala
+    socket.on("joinRoom", (room) => {
+      console.log(`El usuario se unió a la sala: ${room}`);
+      socket.join(room);
+  });
+
+  // Evento para recibir y reenviar mensajes en una sala específica
+  socket.on("chat message", (message) => {
+      console.log('Mensaje recibido en el backend:', message);
+      io.to(message.room).emit("chat message", message);
+      console.log(`Mensaje reenviado a la sala: ${message.room}`);
+  });
+
   socket.on("disconnect", () => {
     console.log("Usuario desconectado");
   });
+});
+
+server.listen(port, () => {
+  console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
 });
 
 // Manejador POST para guardar un mensaje y emitirlo con Socket.IO
