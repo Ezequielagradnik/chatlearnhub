@@ -34,8 +34,11 @@
 
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
-
-        const socket = io("http://localhost:3001");
+    
+        const socket = io("http://localhost:3001", {
+            autoConnect: false,
+            reconnection: true
+        });
         const chatList = document.getElementById('chatList');
         const messageList = document.getElementById('messageList');
         const messageForm = document.getElementById('messageForm');
@@ -48,30 +51,52 @@
         const otherUserIdInput = document.getElementById('otherUserIdInput');
         
         let currentChat = null;
-
+        let loadedMessages = new Set();
+    
         loginButton.addEventListener('click', () => {
             const tipoUsuario = tipoUsuarioSelect.value;
             const userId = userIdInput.value;
             const otherUserId = otherUserIdInput.value;
-
+    
             if (!userId || !otherUserId) {
                 errorMessage.textContent = "Por favor, ingresa tu ID y el ID del otro usuario.";
                 return;
             }
-
+    
             localStorage.setItem('tipoUsuario', tipoUsuario);
             localStorage.setItem('userId', userId);
             localStorage.setItem('otherUserId', otherUserId);
-
+    
             // Crea una sala única para el chat
             const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
             socket.emit('joinRoom', room);
             
             loadChatsForUser(tipoUsuario, userId);
+            socket.connect();
+        });
+    
+        window.addEventListener('load', () => {
+            const tipoUsuario = localStorage.getItem('tipoUsuario');
+            const userId = localStorage.getItem('userId');
+            const otherUserId = localStorage.getItem('otherUserId');
+    
+            if (tipoUsuario && userId && otherUserId) {
+                const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
+                socket.emit('joinRoom', room);
+                loadChatsForUser(tipoUsuario, userId);
+                loadChat(userId, otherUserId);
+                socket.connect();
+            }
         });
     
         socket.on('connect', () => {
             console.log("Conectado al servidor de chat.");
+        });
+    
+        socket.on("previousMessages", (messages) => {
+            messages.forEach(message => {
+                displayMessage(message); // Función que añade el mensaje a la UI
+            });
         });
     
         function loadChatsForUser(tipoUsuario, userId) {
@@ -101,18 +126,28 @@
                 .then(response => response.json())
                 .then(messages => {
                     messageList.innerHTML = '';
-                    messages.forEach(message => {
-                        const messageItem = document.createElement('div');
-                        messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
-                        messageItem.classList.add('message-item', message.sender === 'me' ? 'sent' : 'received');
-                        messageList.appendChild(messageItem);
-                    });
+                    loadedMessages.clear();
+                    messages.forEach(message => displayMessage(message));
                     messageList.scrollTop = messageList.scrollHeight;
+                    
+                    // Enviar solicitud para obtener mensajes anteriores después de cargar los actuales
+                    socket.emit('requestPreviousMessages', { idprof, idalumno });
                 })
                 .catch(error => {
                     console.error("Error al cargar mensajes:", error);
                     errorMessage.textContent = "Error al cargar mensajes.";
                 });
+        }
+    
+        function displayMessage(message) {
+            if (loadedMessages.has(message.id)) return;
+            loadedMessages.add(message.id);
+    
+            const messageItem = document.createElement('div');
+            messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
+            messageItem.classList.add('message-item', message.sender === 'me' ? 'sent' : 'received');
+            messageList.appendChild(messageItem);
+            messageList.scrollTop = messageList.scrollHeight;
         }
     
         messageForm.addEventListener('submit', (event) => {
@@ -121,32 +156,30 @@
             const userId = localStorage.getItem('userId');
             const otherUserId = localStorage.getItem('otherUserId');
             const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
-
+    
             if (messageInput.value) {
                 if (!currentChat) {
-                    // Crear un nuevo chat usando el ID del otro usuario ingresado
                     currentChat = {
                         idprof: tipoUsuario === 'profesor' ? userId : otherUserId,
                         idalumno: tipoUsuario === 'alumno' ? userId : otherUserId
                     };
                 }
-
+    
                 const message = {
                     idprof: currentChat.idprof,
                     idalumno: currentChat.idalumno,
                     content: messageInput.value,
                     room: room
                 };
-
-                // Emite el mensaje a la sala específica
+    
                 socket.emit('chat message', message);
-
+    
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date().toLocaleString()}`;
                 messageItem.classList.add('message-item', 'sent');
                 messageList.appendChild(messageItem);
                 messageList.scrollTop = messageList.scrollHeight;
-
+    
                 messageInput.value = '';
             } else {
                 console.log("No hay mensaje para enviar.");
@@ -156,11 +189,7 @@
         socket.on('chat message', (message) => {
             const room = `${Math.min(message.idprof, message.idalumno)}-${Math.max(message.idprof, message.idalumno)}`;
             if (currentChat && message.room === room) {
-                const messageItem = document.createElement('div');
-                messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
-                messageItem.classList.add('message-item', 'received');
-                messageList.appendChild(messageItem);
-                messageList.scrollTop = messageList.scrollHeight;
+                displayMessage(message);
             }
         });
     </script>
