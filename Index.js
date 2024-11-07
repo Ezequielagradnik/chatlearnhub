@@ -42,9 +42,10 @@ io.on('connection', (socket) => {
       socket.join(room);
   });
 
-  // Evento para recibir y reenviar mensajes en una sala específica
   socket.on("chat message", (message) => {
       console.log('Mensaje recibido en el backend:', message);
+    message.timestamp = new Date().toISOString();
+
       io.to(message.room).emit("chat message", message);
       console.log(`Mensaje reenviado a la sala: ${message.room}`);
   });
