@@ -154,6 +154,9 @@
         });
     
         socket.on('chat message', (message) => {
+            console.log(message)
+            const tipoUsuario = localStorage.getItem('tipoUsuario');
+            if(message.sender = tipoUsuario) return; 
             const room = `${Math.min(message.idprof, message.idalumno)}-${Math.max(message.idprof, message.idalumno)}`;
             if (currentChat && message.room === room) {
                 const messageItem = document.createElement('div');

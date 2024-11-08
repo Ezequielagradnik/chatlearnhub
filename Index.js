@@ -68,9 +68,14 @@ app.post('/api/messages', async (req, res) => {
       [idprof, idalumno, content]
     );
     const messageId = result.rows[0].id;
+    console.log(messageId)
 
-    // Determina el remitente en función de los IDs
-    const sender = idprof === parseInt(req.body.senderId) ? 'profesor' : 'alumno';
+     // Determina el remitente con una verificación explícita
+     const sender = senderId === idprof ? 'profesor' : senderId === idalumno ? 'alumno' : null;
+
+     if (!sender) {
+       return res.status(400).json({ error: "El ID del remitente no coincide con ninguno de los IDs." });
+     }
 
     // Emite el mensaje a la sala específica
     io.to(req.body.room).emit("chat message", {
@@ -79,7 +84,7 @@ app.post('/api/messages', async (req, res) => {
       idalumno,
       content,
       timestamp: new Date(),
-      sender, // Incluye el remitente
+      sender, 
       room: req.body.room
     });
 
