@@ -136,31 +136,39 @@ app.get('/api/messages', async (req, res) => {
 });
 
 app.get('/api/chats', async (req, res) => {
-  const { userId, tipoUsuario } = req.query;
-
+  const { tipoUsuario, userId } = req.query;
   try {
-    const query = `
-      SELECT 
-        CASE 
-            WHEN m.idprof = p."ID" THEN p.nombre || ' ' || p.apellido
-            WHEN m.idalumno = a."ID" THEN a.nombre || ' ' || a.apellido
-        END AS nombre,
-        m.idprof, m.idalumno
-      FROM messages m
-      LEFT JOIN profesores p ON m.idprof = p."ID"
-      LEFT JOIN alumnos a ON m.idalumno = a."ID"
-      WHERE ${tipoUsuario === 'profesor' ? 'm.idprof' : 'm.idalumno'} = $1
-      GROUP BY m.idprof, m.idalumno, p."ID", a."ID", p.nombre, p.apellido, a.nombre, a.apellido
-    `;
+      let query = `
+          SELECT messages.id, messages.idprof, messages.idalumno, messages.content, messages.timestamp, 
+                 CASE 
+                     WHEN $1 = 'profesor' THEN alumnos.nombre || ' ' || alumnos.apellido 
+                     ELSE profesores.nombre || ' ' || profesores.apellido 
+                 END AS otherUserName
+          FROM messages
+          LEFT JOIN profesores ON messages.idprof = profesores."ID"
+          LEFT JOIN alumnos ON messages.idalumno = alumnos."ID"
+          WHERE ($1 = 'profesor' AND messages.idprof = $2) OR ($1 = 'alumno' AND messages.idalumno = $2)
+          GROUP BY messages.id, messages.idprof, messages.idalumno, alumnos.nombre, alumnos.apellido, profesores.nombre, profesores.apellido
+          ORDER BY messages.timestamp DESC;
+      `;
 
-    const result = await pool.query(query, [userId]);
-    res.json(result.rows);
+      const values = [tipoUsuario, userId];
+      const { rows } = await pool.query(query, values);
+
+      const chats = rows.map(row => ({
+          otherUserName: row.otherUserName,
+          idprof: row.idprof,
+          idalumno: row.idalumno,
+          lastMessage: row.content,
+          timestamp: row.timestamp
+      }));
+
+      res.json(chats);
   } catch (error) {
-    console.error("Error al obtener la lista de chats:", error);
-    res.status(500).json({ error: "Error al obtener la lista de chats" });
+      console.error("Error al obtener chats:", error);
+      res.status(500).json({ message: "Error al obtener los chats" });
   }
 });
-
 server.listen(port, () => {
   console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
 });

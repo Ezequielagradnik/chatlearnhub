@@ -32,7 +32,7 @@
         </div>
     </div>
 
-    <script type="module">
+    <script type="module"> 
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
     
         const socket = io("http://localhost:3001", {
@@ -44,85 +44,84 @@
         const messageForm = document.getElementById('messageForm');
         const messageInput = document.getElementById('messageInput');
         const errorMessage = document.getElementById('errorMessage');
-        
+    
         const loginButton = document.getElementById('loginButton');
         const tipoUsuarioSelect = document.getElementById('tipoUsuario');
         const userIdInput = document.getElementById('userIdInput');
         const otherUserIdInput = document.getElementById('otherUserIdInput');
-        
+    
         let currentChat = null;
         let loadedMessages = new Set();
-        
+    
         loginButton.addEventListener('click', () => {
             const tipoUsuario = tipoUsuarioSelect.value;
             const userId = userIdInput.value;
             const otherUserId = otherUserIdInput.value;
-        
+    
             if (!userId || !otherUserId) {
                 errorMessage.textContent = "Por favor, ingresa tu ID y el ID del otro usuario.";
                 return;
             }
-        
+    
             localStorage.setItem('tipoUsuario', tipoUsuario);
             localStorage.setItem('userId', userId);
             localStorage.setItem('otherUserId', otherUserId);
-        
-            // Crea una sala única para el chat
+    
             const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
             socket.emit('joinRoom', room);
             
             loadChatsForUser(tipoUsuario, userId);
             socket.connect();
         });
-        
+    
         window.addEventListener('load', () => {
             const tipoUsuario = localStorage.getItem('tipoUsuario');
             const userId = localStorage.getItem('userId');
             const otherUserId = localStorage.getItem('otherUserId');
-        
+    
             if (tipoUsuario && userId && otherUserId) {
                 const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
                 socket.emit('joinRoom', room);
                 loadChatsForUser(tipoUsuario, userId);
-                loadChat(userId, otherUserId); // Cargar mensajes actuales
+                loadChat(userId, otherUserId);
                 socket.connect();
             }
         });
-        
+    
         socket.on('connect', () => {
             console.log("Conectado al servidor de chat.");
         });
-        
+    
         socket.on("previousMessages", (messages) => {
-            // Mostrar los mensajes anteriores una vez que el usuario se haya logueado y el chat esté activo
             messages.forEach(message => {
-                displayMessage(message); // Función que añade el mensaje a la UI
+                displayMessage(message);
             });
         });
-        
+    
         function loadChatsForUser(tipoUsuario, userId) {
             fetch(`http://localhost:3001/api/chats?tipoUsuario=${tipoUsuario}&userId=${userId}`)
-            .then(response => response.json())
+                .then(response => response.json())
                 .then(chats => {
                     chatList.innerHTML = '<h3>Chats</h3>';
-                    chats.forEach(chat => addChatBox(chat.otherUserId));
+                    chats.forEach(chat => addChatBox(chat));
                 })
                 .catch(error => {
                     console.error("Error al cargar chats:", error);
                     errorMessage.textContent = "Error al cargar la lista de chats.";
                 });
-
-        function addChatBox(otherUserId) {
+        }
+    
+        function addChatBox(chat) {
             const chatItem = document.createElement('div');
-            chatItem.textContent = `Chat con ID: ${otherUserId}`;
+            chatItem.textContent = `Chat con: ${chat.otherUserName}`;
             chatItem.classList.add('chat-item');
             chatItem.addEventListener('click', () => {
-                currentChat = otherUserId;
-                loadChat(localStorage.getItem('userId'), otherUserId);
+                currentChat = chat;
+                loadChat(localStorage.getItem('userId'), chat.idprof, chat.idalumno);
             });
             chatList.appendChild(chatItem);
         }
-        
+    
         function loadChat(idprof, idalumno) {
             fetch(`http://localhost:3001/api/messages?idprof=${idprof}&idalumno=${idalumno}`)
                 .then(response => response.json())
@@ -131,8 +130,6 @@
                     loadedMessages.clear();
                     messages.forEach(message => displayMessage(message));
                     messageList.scrollTop = messageList.scrollHeight;
-                    
-                    // Solicitamos los mensajes anteriores después de cargar los actuales
                     socket.emit('requestPreviousMessages', { idprof, idalumno });
                 })
                 .catch(error => {
@@ -140,72 +137,54 @@
                     errorMessage.textContent = "Error al cargar mensajes.";
                 });
         }
-    }
+    
         function displayMessage(message) {
-    if (loadedMessages.has(message.id)) return;
-    loadedMessages.add(message.id);
-
-    const messageItem = document.createElement('div');
-    const currentUserId = localStorage.getItem('userId');
-    const tipoUsuario = localStorage.getItem('tipoUsuario');
-
-    // Verifica si el remitente del mensaje es el usuario actual
-    const isSentByCurrentUser = (
-        (tipoUsuario === 'profesor' && message.sender === 'profesor') ||
-        (tipoUsuario === 'alumno' && message.sender === 'alumno')
-    );
-
-    const senderClass = isSentByCurrentUser ? 'sent' : 'received';
-    messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
-    messageItem.classList.add('message-item', senderClass);
-    messageList.appendChild(messageItem);
-    messageList.scrollTop = messageList.scrollHeight;
-}
+            if (loadedMessages.has(message.id)) return;
+            loadedMessages.add(message.id);
+    
+            const messageItem = document.createElement('div');
+            const isSentByCurrentUser = message.sender === localStorage.getItem('tipoUsuario');
+            const senderClass = isSentByCurrentUser ? 'sent' : 'received';
+            messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
+            messageItem.classList.add('message-item', senderClass);
+            messageList.appendChild(messageItem);
+            messageList.scrollTop = messageList.scrollHeight;
+        }
+    
         messageForm.addEventListener('submit', (event) => {
             event.preventDefault();
             const tipoUsuario = localStorage.getItem('tipoUsuario');
             const userId = localStorage.getItem('userId');
             const otherUserId = localStorage.getItem('otherUserId');
             const room = `${Math.min(userId, otherUserId)}-${Math.max(userId, otherUserId)}`;
-        
+    
             if (messageInput.value) {
-                if (!currentChat) {
-                    currentChat = {
-                        idprof: tipoUsuario === 'profesor' ? userId : otherUserId,
-                        idalumno: tipoUsuario === 'alumno' ? userId : otherUserId
-                    };
-                }
-        
                 const message = {
-                    idprof: currentChat.idprof,
-                    idalumno: currentChat.idalumno,
+                    idprof: tipoUsuario === 'profesor' ? userId : otherUserId,
+                    idalumno: tipoUsuario === 'alumno' ? userId : otherUserId,
                     content: messageInput.value,
                     room: room
                 };
-        
+    
                 socket.emit('chat message', message);
-        
+    
                 const messageItem = document.createElement('div');
                 messageItem.textContent = `${message.content} - ${new Date().toLocaleString()}`;
                 messageItem.classList.add('message-item', 'sent');
                 messageList.appendChild(messageItem);
                 messageList.scrollTop = messageList.scrollHeight;
-        
+    
                 messageInput.value = '';
             } else {
                 console.log("No hay mensaje para enviar.");
             }
         });
-        
+    
         socket.on('chat message', (message) => {
-            console.log(message)
-            const tipoUsuario = localStorage.getItem('tipoUsuario');
-            if(message.sender = tipoUsuario) return; 
             const room = `${Math.min(message.idprof, message.idalumno)}-${Math.max(message.idprof, message.idalumno)}`;
             if (currentChat && message.room === room) {
                 displayMessage(message);
             }
-        
         });
     </script>
 </body>
