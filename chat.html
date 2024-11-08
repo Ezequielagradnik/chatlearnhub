@@ -102,24 +102,25 @@
         
         function loadChatsForUser(tipoUsuario, userId) {
             fetch(`http://localhost:3001/api/chats?tipoUsuario=${tipoUsuario}&userId=${userId}`)
-                .then(response => response.json())
+            .then(response => response.json())
                 .then(chats => {
                     chatList.innerHTML = '<h3>Chats</h3>';
-                    chats.forEach(chat => {
-                        const chatItem = document.createElement('div');
-                        chatItem.textContent = `${chat.nombreCompleto}`;
-                        chatItem.classList.add('chat-item');
-                        chatItem.addEventListener('click', () => {
-                            currentChat = chat;
-                            loadChat(chat.idprof, chat.idalumno); // Cuando se selecciona un chat, cargamos los mensajes
-                        });
-                        chatList.appendChild(chatItem);
-                    });
+                    chats.forEach(chat => addChatBox(chat.otherUserId));
                 })
                 .catch(error => {
                     console.error("Error al cargar chats:", error);
                     errorMessage.textContent = "Error al cargar la lista de chats.";
                 });
+
+        function addChatBox(otherUserId) {
+            const chatItem = document.createElement('div');
+            chatItem.textContent = `Chat con ID: ${otherUserId}`;
+            chatItem.classList.add('chat-item');
+            chatItem.addEventListener('click', () => {
+                currentChat = otherUserId;
+                loadChat(localStorage.getItem('userId'), otherUserId);
+            });
+            chatList.appendChild(chatItem);
         }
         
         function loadChat(idprof, idalumno) {
@@ -139,7 +140,7 @@
                     errorMessage.textContent = "Error al cargar mensajes.";
                 });
         }
-        
+    }
         function displayMessage(message) {
     if (loadedMessages.has(message.id)) return;
     loadedMessages.add(message.id);
@@ -204,7 +205,9 @@
             if (currentChat && message.room === room) {
                 displayMessage(message);
             }
+        
         });
     </script>
 </body>
 </html>
+        
