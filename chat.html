@@ -141,19 +141,25 @@
         }
         
         function displayMessage(message) {
-            if (loadedMessages.has(message.id)) return;
-            loadedMessages.add(message.id);
-        
-            const messageItem = document.createElement('div');
-            // Verificamos si el mensaje pertenece al usuario actual
-            const currentUserId = localStorage.getItem('userId');
-            const senderClass = message.sender === currentUserId ? 'sent' : 'received'; // Cambiar la lógica de sender
-            messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
-            messageItem.classList.add('message-item', senderClass);
-            messageList.appendChild(messageItem);
-            messageList.scrollTop = messageList.scrollHeight;
-        }
-        
+    if (loadedMessages.has(message.id)) return;
+    loadedMessages.add(message.id);
+
+    const messageItem = document.createElement('div');
+    const currentUserId = localStorage.getItem('userId');
+    const tipoUsuario = localStorage.getItem('tipoUsuario');
+
+    // Verifica si el remitente del mensaje es el usuario actual
+    const isSentByCurrentUser = (
+        (tipoUsuario === 'profesor' && message.sender === 'profesor') ||
+        (tipoUsuario === 'alumno' && message.sender === 'alumno')
+    );
+
+    const senderClass = isSentByCurrentUser ? 'sent' : 'received';
+    messageItem.textContent = `${message.content} - ${new Date(message.timestamp).toLocaleString()}`;
+    messageItem.classList.add('message-item', senderClass);
+    messageList.appendChild(messageItem);
+    messageList.scrollTop = messageList.scrollHeight;
+}
         messageForm.addEventListener('submit', (event) => {
             event.preventDefault();
             const tipoUsuario = localStorage.getItem('tipoUsuario');

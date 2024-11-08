@@ -63,11 +63,11 @@ io.on('connection', (socket) => {
     message.sender = sender;
     
 
-    // Guardar el mensaje en la base de datos
-    await pool.query(
-      "INSERT INTO messages (idprof, idalumno, content, timestamp) VALUES ($1, $2, $3, $4)",
-      [message.idprof, message.idalumno, message.content, message.timestamp]
-    );
+     // Guardar el mensaje en la base de datos
+     await pool.query(
+     "INSERT INTO messages (idprof, idalumno, content, timestamp, sender) VALUES ($1, $2, $3, $4, $5)",
+     [message.idprof, message.idalumno, message.content, message.timestamp, sender]
+     );
 
     // Emitir el mensaje a todos los usuarios en la sala excepto al que lo envió
     socket.broadcast.to(message.room).emit("chat message", message);
