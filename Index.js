@@ -26,30 +26,56 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS']
 }));
 
-// CHAT: 
+// Escuchar el evento de conexión de Socket.IO
 io.on('connection', (socket) => {
   console.log("Usuario conectado");
 
   // Evento para unirse a una sala
-  socket.on("joinRoom", (room) => {
-    console.log(`El usuario se unió a la sala: ${room}`);
-    socket.join(room);
+  socket.on("joinRoom", async (room) => {
+    try {
+      console.log(`El usuario se unió a la sala: ${room}`);
+      socket.join(room);
+
+      // Desestructurar idprof e idalumno del room
+      const [idprof, idalumno] = room.split('-').map(Number);
+
+
+      // Consultar los mensajes anteriores
+      const result = await pool.query(
+        "SELECT * FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
+        [idprof, idalumno]
+      );
+
+      // Enviar los mensajes antiguos solo al socket que se acaba de conectar
+      socket.emit("previousMessages", result.rows);
+    } catch (error) {
+      console.error("Error al obtener mensajes anteriores:", error);
+    }
   });
 
   // Manejar el evento de mensaje
-  socket.on("chat message", (message) => {
+  socket.on("chat message", async (message) => {
     console.log('Mensaje recibido en el backend:', message);
     message.timestamp = new Date().toISOString();
 
     // Determinar el remitente y agregarlo al mensaje
     const sender = message.idprof === parseInt(message.senderId) ? 'profesor' : 'alumno';
     message.sender = sender;
+    
 
-    // Emitir el mensaje a la sala específica
-    io.to(message.room).emit("chat message", message);
+    // Guardar el mensaje en la base de datos
+    await pool.query(
+      "INSERT INTO messages (idprof, idalumno, content, timestamp) VALUES ($1, $2, $3, $4)",
+      [message.idprof, message.idalumno, message.content, message.timestamp]
+    );
+
+    // Emitir el mensaje a todos los usuarios en la sala excepto al que lo envió
+    socket.broadcast.to(message.room).emit("chat message", message);
     console.log(`Mensaje reenviado a la sala: ${message.room}`);
   });
 
+
+  // Manejar la desconexión del usuario
   socket.on("disconnect", () => {
     console.log("Usuario desconectado");
   });
