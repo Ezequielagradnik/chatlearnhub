@@ -1,4 +1,4 @@
-import { Server } from "socket.io";
+import { Server } from "socket.io"; 
 import { createServer } from "node:http";
 import express from "express";
 import cors from "cors";
@@ -84,6 +84,26 @@ app.delete('/api/chats', async (req, res) => {
   } catch (error) {
     console.error("Error al eliminar el chat:", error);
     res.status(500).json({ error: "Error al eliminar el chat." });
+  }
+});
+
+// Endpoint para eliminar un mensaje específico
+app.delete('/api/messages', async (req, res) => {
+  const { idprof, idalumno, timestamp } = req.body;
+  
+  if (!idprof || !idalumno || !timestamp) {
+    return res.status(400).json({ error: "Faltan datos necesarios para eliminar el mensaje." });
+  }
+
+  try {
+    await pool.query(
+      "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2 AND timestamp = $3",
+      [idprof, idalumno, timestamp]
+    );
+    res.status(200).json({ message: "Mensaje eliminado correctamente." });
+  } catch (error) {
+    console.error("Error al eliminar el mensaje:", error);
+    res.status(500).json({ error: "Error al eliminar el mensaje." });
   }
 });
 
