@@ -170,6 +170,25 @@ app.get('/api/chats', async (req, res) => {
   }
 });
 
+// Endpoint para eliminar un mensaje específico por ID
+app.delete('/api/messages/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query("DELETE FROM messages WHERE id = $1", [id]);
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Mensaje no encontrado" });
+    }
+    
+    res.status(200).json({ message: "Mensaje eliminado correctamente." });
+  } catch (error) {
+    console.error("Error al eliminar el mensaje:", error);
+    res.status(500).json({ error: "Error al eliminar el mensaje." });
+  }
+});
+
+
 app.delete('/api/chats', async (req, res) => {
   const { idprof, idalumno } = req.body;
   if (!idprof || !idalumno) {
