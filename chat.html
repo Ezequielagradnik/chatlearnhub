@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -8,6 +8,7 @@
 </head>
 <body>
     <div class="chat-container">
+        <!-- Contenedor de inicio de sesión -->
         <div class="login-container">
             <select id="tipoUsuario">
                 <option value="alumno">Alumno</option>
@@ -18,11 +19,17 @@
             <button id="loginButton">Iniciar sesión</button>
         </div>
         
+        <!-- Lista de chats con el botón para eliminar -->
         <div class="chat-list" id="chatList">
             <h3>Chats</h3>
             <div id="errorMessage" style="color: red;"></div>
+            <div class="chat-item">
+                <span>Chat con: <span id="chatWith">Nombre del usuario</span></span>
+                <button onclick="deleteChat(idprof, idalumno)">Eliminar Chat</button>
+            </div>
         </div>
 
+        <!-- Caja de chat y formulario de mensaje -->
         <div class="chat-box">
             <div class="message-list" id="messageList"></div>
             <form id="messageForm">
@@ -186,6 +193,29 @@
                 displayMessage(message);
             }
         });
+
+        async function deleteChat(idprof, idalumno) {
+  try {
+    const response = await fetch("http://localhost:3001/api/chats", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ idprof, idalumno })
+    });
+
+    if (response.ok) {
+      alert("Chat eliminado correctamente.");
+    } else {
+      const errorData = await response.json();
+      console.error("Error al eliminar el chat:", errorData.error);
+      alert("Error al eliminar el chat.");
+    }
+  } catch (error) {
+    console.error("Error de red al eliminar el chat:", error);
+    alert("Error de red al intentar eliminar el chat.");
+  }
+}
     </script>
 </body>
 </html>

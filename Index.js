@@ -169,6 +169,22 @@ app.get('/api/chats', async (req, res) => {
       res.status(500).json({ message: "Error al obtener los chats" });
   }
 });
+
+app.delete('/api/chats', async (req, res) => {
+  const { idprof, idalumno } = req.body;
+  if (!idprof || !idalumno) {
+    return res.status(400).json({ error: "Faltan datos necesarios para eliminar el chat." });
+  }
+
+  try {
+    await pool.query("DELETE FROM messages WHERE idprof = $1 AND idalumno = $2", [idprof, idalumno]);
+    res.status(200).json({ message: "Chat eliminado correctamente." });
+  } catch (error) {
+    console.error("Error al eliminar el chat:", error);
+    res.status(500).json({ error: "Error al eliminar el chat." });
+  }
+});
+
 server.listen(port, () => {
   console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
 });
