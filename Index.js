@@ -18,7 +18,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(cors({
   origin: "*",
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST']
 }));
 
 // Endpoint para obtener los chats de un usuario (alumno o profesor)
@@ -30,26 +30,22 @@ app.get("/api/chats", async (req, res) => {
     let params = [];
     
     if (tipoUsuario === 'alumno') {
-      query = `
-        SELECT profesores.ID AS otherUserId, profesores.nombre AS otherUserName, 
-               MAX(messages.timestamp) AS lastMessageTimestamp, 
-               MAX(messages.content) AS lastMessage
-        FROM messages 
-        JOIN profesores ON profesores.ID = messages.idprof
-        WHERE messages.idalumno = $1
-        GROUP BY profesores.ID
-      `;
+      query = `SELECT profesores.ID AS otherUserId, profesores.nombre AS otherUserName, 
+                       MAX(messages.timestamp) AS lastMessageTimestamp, 
+                       MAX(messages.content) AS lastMessage
+                FROM messages 
+                JOIN profesores ON profesores.ID = messages.idprof
+                WHERE messages.idalumno = $1
+                GROUP BY profesores.ID`;
       params = [userId];
     } else if (tipoUsuario === 'profesor') {
-      query = `
-        SELECT alumnos.ID AS otherUserId, alumnos.nombre AS otherUserName, 
-               MAX(messages.timestamp) AS lastMessageTimestamp, 
-               MAX(messages.content) AS lastMessage
-        FROM messages 
-        JOIN alumnos ON alumnos.ID = messages.idalumno
-        WHERE messages.idprof = $1
-        GROUP BY alumnos.ID
-      `;
+      query = `SELECT alumnos.ID AS otherUserId, alumnos.nombre AS otherUserName, 
+                       MAX(messages.timestamp) AS lastMessageTimestamp, 
+                       MAX(messages.content) AS lastMessage
+                FROM messages 
+                JOIN alumnos ON alumnos.ID = messages.idalumno
+                WHERE messages.idprof = $1
+                GROUP BY alumnos.ID`;
       params = [userId];
     }
 
@@ -77,41 +73,6 @@ app.get("/api/messages", async (req, res) => {
   } catch (error) {
     console.error("Error al obtener mensajes:", error);
     res.status(500).json({ error: "Error al obtener los mensajes." });
-  }
-});
-
-// Endpoint para eliminar un mensaje
-app.delete("/api/messages/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query(
-      "DELETE FROM messages WHERE id = $1",
-      [id]
-    );
-    res.json({ message: "Mensaje eliminado correctamente" });
-  } catch (error) {
-    console.error("Error al eliminar el mensaje:", error);
-    res.status(500).json({ error: "Error al eliminar el mensaje." });
-  }
-});
-
-// Endpoint para eliminar un chat (todos los mensajes entre un profesor y un alumno)
-app.delete("/api/chats", async (req, res) => {
-  const { idprof, idalumno } = req.query;
-
-  if (!idprof || !idalumno) {
-    return res.status(400).json({ error: "Se requieren idprof y idalumno" });
-  }
-
-  try {
-    await pool.query(
-      "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2",
-      [idprof, idalumno]
-    );
-    res.json({ message: "Chat eliminado correctamente" });
-  } catch (error) {
-    console.error("Error al eliminar el chat:", error);
-    res.status(500).json({ error: "Error al eliminar el chat." });
   }
 });
 
