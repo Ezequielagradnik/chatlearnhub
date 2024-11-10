@@ -105,6 +105,8 @@ io.on("connection", (socket) => {
 
     // Si no hay mensajes previos, notifica al profesor de un nuevo chat
     if (mensajesPrevios.rowCount === 0) {
+      console.log("Enviando notificación de nuevo chat al profesor");
+
       io.emit("newChat", { idprof: message.idprof, idalumno: message.idalumno });
     }
 
