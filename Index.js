@@ -30,18 +30,14 @@ app.get("/api/chats", async (req, res) => {
     let params = [];
     
     if (tipoUsuario === 'alumno') {
-      query = `SELECT profesores."ID" AS otherUserId, profesores.nombre AS otherUserName, 
-                       MAX(messages.timestamp) AS lastMessageTimestamp, 
-                       MAX(messages.content) AS lastMessage
+      query = `SELECT profesores."ID" AS otherUserId, profesores.nombre AS otherUserName
                 FROM messages 
                 JOIN profesores ON profesores."ID" = messages.idprof
                 WHERE messages.idalumno = $1
                 GROUP BY profesores."ID"`;
       params = [userId];
     } else if (tipoUsuario === 'profesor') {
-      query = `SELECT alumnos."ID" AS otherUserId, alumnos.nombre AS otherUserName, 
-                       MAX(messages.timestamp) AS lastMessageTimestamp, 
-                       MAX(messages.content) AS lastMessage
+      query = `SELECT alumnos."ID" AS otherUserId, alumnos.nombre AS otherUserName
                 FROM messages 
                 JOIN alumnos ON alumnos."ID" = messages.idalumno
                 WHERE messages.idprof = $1
