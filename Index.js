@@ -24,7 +24,7 @@ app.use(cors({
 // Endpoint para obtener los chats de un usuario (alumno o profesor)
 app.get("/api/chats", async (req, res) => {
   const { tipoUsuario, userId } = req.query;
-  console.log(`tipoUsuario: ${tipoUsuario}, userId: ${userId}`);  // Log para depuración
+  console.log(`tipoUsuario: ${tipoUsuario}, userId: ${userId}`);
   try {
     let query = '';
     let params = [];
@@ -50,8 +50,6 @@ app.get("/api/chats", async (req, res) => {
     }
 
     const result = await pool.query(query, params);
-    console.log(result.rows);  // Verifica el resultado de la consulta
-
     res.json(result.rows);
   } catch (error) {
     console.error("Error al obtener los chats:", error);
@@ -62,8 +60,17 @@ app.get("/api/chats", async (req, res) => {
 // Endpoint para obtener mensajes en una sala específica
 app.get("/api/messages", async (req, res) => {
   const { room } = req.query;
+  if (!room) {
+    res.status(400).json({ error: "Missing room parameter." });
+    return;
+  }
+
   const [idprof, idalumno] = room.split('-').map(Number);
-  
+  if (isNaN(idprof) || isNaN(idalumno)) {
+    res.status(400).json({ error: "Invalid room format." });
+    return;
+  }
+
   try {
     const result = await pool.query(
       "SELECT content, timestamp, sender FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
@@ -97,16 +104,12 @@ io.on("connection", (socket) => {
   socket.on("chat message", async (message) => {
     message.timestamp = new Date().toISOString();
 
-      // Verifica si hay mensajes previos entre el alumno y el profesor
-  const mensajesPrevios = await pool.query(
-    "SELECT * FROM messages WHERE idprof = $1 AND idalumno = $2",
-    [message.idprof, message.idalumno]
-  );
+    const mensajesPrevios = await pool.query(
+      "SELECT * FROM messages WHERE idprof = $1 AND idalumno = $2",
+      [message.idprof, message.idalumno]
+    );
 
-    // Si no hay mensajes previos, notifica al profesor de un nuevo chat
     if (mensajesPrevios.rowCount === 0) {
-      console.log("Enviando notificación de nuevo chat al profesor");
-
       io.emit("newChat", { idprof: message.idprof, idalumno: message.idalumno });
     }
 
@@ -120,8 +123,6 @@ io.on("connection", (socket) => {
       timestamp: message.timestamp,
       sender: message.sender
     });
-
-
   });
 
   socket.on("disconnect", () => {
