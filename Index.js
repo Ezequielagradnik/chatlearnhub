@@ -21,10 +21,8 @@ app.use(cors({
   methods: ['GET', 'POST']
 }));
 
-// Endpoint para obtener los chats de un usuario (alumno o profesor)
 app.get("/api/chats", async (req, res) => {
   const { tipoUsuario, userId } = req.query;
-  console.log(`tipoUsuario: ${tipoUsuario}, userId: ${userId}`);
   try {
     let query = '';
     let params = [];
@@ -53,7 +51,6 @@ app.get("/api/chats", async (req, res) => {
   }
 });
 
-// Endpoint para obtener mensajes en una sala específica
 app.get("/api/messages", async (req, res) => {
   const { room } = req.query;
   if (!room) {
@@ -79,7 +76,6 @@ app.get("/api/messages", async (req, res) => {
   }
 });
 
-// Configuración de Socket.io
 io.on("connection", (socket) => {
   console.log("Usuario conectado");
 
