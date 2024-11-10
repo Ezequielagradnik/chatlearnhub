@@ -24,6 +24,7 @@ app.use(cors({
 // Endpoint para obtener los chats de un usuario (alumno o profesor)
 app.get("/api/chats", async (req, res) => {
   const { tipoUsuario, userId } = req.query;
+  console.log(`tipoUsuario: ${tipoUsuario}, userId: ${userId}`);  // Log para depuración
   try {
     let query = '';
     let params = [];
@@ -53,6 +54,8 @@ app.get("/api/chats", async (req, res) => {
     }
 
     const result = await pool.query(query, params);
+    console.log(result.rows);  // Verifica el resultado de la consulta
+
     res.json(result.rows);
   } catch (error) {
     console.error("Error al obtener los chats:", error);
