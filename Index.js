@@ -64,11 +64,6 @@ app.get("/api/messages", async (req, res) => {
   const { room } = req.query;
   const [idprof, idalumno] = room.split('-').map(Number);
   
-    // Verificar si los IDs son válidos
-    if (isNaN(idprof) || isNaN(idalumno)) {
-      return res.status(400).json({ error: "ID inválido para la sala." });
-    }
-    
   try {
     const result = await pool.query(
       "SELECT content, timestamp, sender FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
