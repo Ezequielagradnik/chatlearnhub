@@ -96,6 +96,18 @@ io.on("connection", (socket) => {
 
   socket.on("chat message", async (message) => {
     message.timestamp = new Date().toISOString();
+
+      // Verifica si hay mensajes previos entre el alumno y el profesor
+  const mensajesPrevios = await pool.query(
+    "SELECT * FROM messages WHERE idprof = $1 AND idalumno = $2",
+    [message.idprof, message.idalumno]
+  );
+
+    // Si no hay mensajes previos, notifica al profesor de un nuevo chat
+    if (mensajesPrevios.rowCount === 0) {
+      io.emit("newChat", { idprof: message.idprof, idalumno: message.idalumno });
+    }
+
     await pool.query(
       "INSERT INTO messages (idprof, idalumno, content, timestamp, sender) VALUES ($1, $2, $3, $4, $5)",
       [message.idprof, message.idalumno, message.content, message.timestamp, message.sender]
@@ -107,8 +119,7 @@ io.on("connection", (socket) => {
       sender: message.sender
     });
 
-    // Notificar al profesor de un nuevo chat
-    io.to(message.room).emit("newChat", { idprof: message.idprof, idalumno: message.idalumno });
+
   });
 
   socket.on("disconnect", () => {
