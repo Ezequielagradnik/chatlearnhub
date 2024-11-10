@@ -30,22 +30,22 @@ app.get("/api/chats", async (req, res) => {
     let params = [];
     
     if (tipoUsuario === 'alumno') {
-      query = `SELECT profesores.ID AS otherUserId, profesores.nombre AS otherUserName, 
+      query = `SELECT profesores."ID" AS otherUserId, profesores.nombre AS otherUserName, 
                        MAX(messages.timestamp) AS lastMessageTimestamp, 
                        MAX(messages.content) AS lastMessage
                 FROM messages 
-                JOIN profesores ON profesores.ID = messages.idprof
+                JOIN profesores ON profesores."ID" = messages.idprof
                 WHERE messages.idalumno = $1
-                GROUP BY profesores.ID`;
+                GROUP BY profesores."ID"`;
       params = [userId];
     } else if (tipoUsuario === 'profesor') {
-      query = `SELECT alumnos.ID AS otherUserId, alumnos.nombre AS otherUserName, 
+      query = `SELECT alumnos."ID" AS otherUserId, alumnos.nombre AS otherUserName, 
                        MAX(messages.timestamp) AS lastMessageTimestamp, 
                        MAX(messages.content) AS lastMessage
                 FROM messages 
-                JOIN alumnos ON alumnos.ID = messages.idalumno
+                JOIN alumnos ON alumnos."ID" = messages.idalumno
                 WHERE messages.idprof = $1
-                GROUP BY alumnos.ID`;
+                GROUP BY alumnos."ID"`;
       params = [userId];
     }
 
@@ -64,6 +64,11 @@ app.get("/api/messages", async (req, res) => {
   const { room } = req.query;
   const [idprof, idalumno] = room.split('-').map(Number);
   
+    // Verificar si los IDs son válidos
+    if (isNaN(idprof) || isNaN(idalumno)) {
+      return res.status(400).json({ error: "ID inválido para la sala." });
+    }
+    
   try {
     const result = await pool.query(
       "SELECT content, timestamp, sender FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
