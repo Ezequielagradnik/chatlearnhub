@@ -15,137 +15,138 @@ const io = new Server(server, {
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Proyecto Learnhub está funcionando!");
-});
-
-// Middleware para JSON y CORS
 app.use(express.json());
 app.use(cors({
   origin: "*",
-  methods: ['GET', 'POST', 'OPTIONS']
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS']
 }));
 
-// Escuchar el evento de conexión de Socket.IO
-io.on('connection', (socket) => {
-  console.log("Usuario conectado");
-
- // Evento para unirse a una sala
-socket.on("joinRoom", async (room) => {
+// Endpoint para obtener los chats de un usuario (alumno o profesor)
+app.get("/api/chats", async (req, res) => {
+  const { tipoUsuario, userId } = req.query;
   try {
-    console.log(`El usuario se unió a la sala: ${room}`);
-    socket.join(room);
+    let query = '';
+    let params = [];
+    
+    if (tipoUsuario === 'alumno') {
+      query = `
+        SELECT profesores.ID AS otherUserId, profesores.nombre AS otherUserName, 
+               MAX(messages.timestamp) AS lastMessageTimestamp, 
+               MAX(messages.content) AS lastMessage
+        FROM messages 
+        JOIN profesores ON profesores.ID = messages.idprof
+        WHERE messages.idalumno = $1
+        GROUP BY profesores.ID
+      `;
+      params = [userId];
+    } else if (tipoUsuario === 'profesor') {
+      query = `
+        SELECT alumnos.ID AS otherUserId, alumnos.nombre AS otherUserName, 
+               MAX(messages.timestamp) AS lastMessageTimestamp, 
+               MAX(messages.content) AS lastMessage
+        FROM messages 
+        JOIN alumnos ON alumnos.ID = messages.idalumno
+        WHERE messages.idprof = $1
+        GROUP BY alumnos.ID
+      `;
+      params = [userId];
+    }
 
-    const [idprof, idalumno] = room.split('-').map(Number);
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error al obtener los chats:", error);
+    res.status(500).json({ error: "Error al obtener los chats." });
+  }
+});
 
+// Endpoint para obtener mensajes en una sala específica
+app.get("/api/messages", async (req, res) => {
+  const { room } = req.query;
+  const [idprof, idalumno] = room.split('-').map(Number);
+  
+  try {
     const result = await pool.query(
-      "SELECT content, timestamp FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
+      "SELECT content, timestamp, sender FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
       [idprof, idalumno]
     );
-
-    socket.emit("previousMessages", result.rows);
+    res.json(result.rows);
   } catch (error) {
-    console.error("Error al obtener mensajes anteriores:", error);
+    console.error("Error al obtener mensajes:", error);
+    res.status(500).json({ error: "Error al obtener los mensajes." });
   }
 });
 
-// Manejar el evento de mensaje
-socket.on("chat message", async (message) => {
-  console.log('Mensaje recibido en el backend:', message);
-  message.timestamp = new Date().toISOString();
-
-  await pool.query(
-    "INSERT INTO messages (idprof, idalumno, content, timestamp) VALUES ($1, $2, $3, $4)",
-    [message.idprof, message.idalumno, message.content, message.timestamp]
-  );
-
-  // Emitir solo el contenido del mensaje y el timestamp a los clientes de la sala
-  socket.broadcast.to(message.room).emit("chat message", {
-    content: message.content,
-    timestamp: message.timestamp
-  });
-  console.log(`Mensaje reenviado a la sala: ${message.room}`);
-});
-
-
-  socket.on("disconnect", () => {
-    console.log("Usuario desconectado");
-  });
-});
-
-// Endpoint para eliminar un chat (elimina todos los mensajes relacionados con idprof y idalumno)
-app.delete('/api/chats', async (req, res) => {
-  const { idprof, idalumno } = req.body;
-  if (!idprof || !idalumno) {
-    return res.status(400).json({ error: "Faltan datos necesarios para eliminar el chat." });
-  }
-
-  try {
-    await pool.query("DELETE FROM messages WHERE idprof = $1 AND idalumno = $2", [idprof, idalumno]);
-    res.status(200).json({ message: "Chat eliminado correctamente." });
-  } catch (error) {
-    console.error("Error al eliminar el chat:", error);
-    res.status(500).json({ error: "Error al eliminar el chat." });
-  }
-});
-
-// Endpoint para eliminar un mensaje específico
-app.delete('/api/messages', async (req, res) => {
+// Endpoint para eliminar un mensaje
+app.delete("/api/messages", async (req, res) => {
   const { idprof, idalumno, timestamp } = req.body;
-  
-  if (!idprof || !idalumno || !timestamp) {
-    return res.status(400).json({ error: "Faltan datos necesarios para eliminar el mensaje." });
-  }
-
   try {
     await pool.query(
       "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2 AND timestamp = $3",
       [idprof, idalumno, timestamp]
     );
-    res.status(200).json({ message: "Mensaje eliminado correctamente." });
+    res.sendStatus(200);
   } catch (error) {
     console.error("Error al eliminar el mensaje:", error);
     res.status(500).json({ error: "Error al eliminar el mensaje." });
   }
 });
 
-// Endpoint para obtener los chats de un usuario
-app.get('/api/chats', async (req, res) => {
-  const { tipoUsuario, userId } = req.query;
+// Endpoint para eliminar un chat (todos los mensajes entre un profesor y un alumno)
+app.delete("/api/chats", async (req, res) => {
+  const { idprof, idalumno } = req.body;
   try {
-    let query = `
-      SELECT messages.id, messages.idprof, messages.idalumno, messages.content, messages.timestamp, 
-             CASE 
-                 WHEN $1 = 'profesor' THEN alumnos.nombre || ' ' || alumnos.apellido 
-                 ELSE profesores.nombre || ' ' || profesores.apellido 
-             END AS otherUserName
-      FROM messages
-      LEFT JOIN profesores ON messages.idprof = profesores."ID"
-      LEFT JOIN alumnos ON messages.idalumno = alumnos."ID"
-      WHERE ($1 = 'profesor' AND messages.idprof = $2) OR ($1 = 'alumno' AND messages.idalumno = $2)
-      GROUP BY messages.id, messages.idprof, messages.idalumno, alumnos.nombre, alumnos.apellido, profesores.nombre, profesores.apellido
-      ORDER BY messages.timestamp DESC;
-    `;
-
-    const values = [tipoUsuario, userId];
-    const { rows } = await pool.query(query, values);
-
-    const chats = rows.map(row => ({
-      otherUserName: row.otherUserName,
-      idprof: row.idprof,
-      idalumno: row.idalumno,
-      lastMessage: row.content,
-      timestamp: row.timestamp
-    }));
-
-    res.json(chats);
+    await pool.query(
+      "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2",
+      [idprof, idalumno]
+    );
+    res.sendStatus(200);
   } catch (error) {
-    console.error("Error al obtener chats:", error);
-    res.status(500).json({ message: "Error al obtener los chats" });
+    console.error("Error al eliminar el chat:", error);
+    res.status(500).json({ error: "Error al eliminar el chat." });
   }
 });
 
-// Iniciar el servidor
+// Configuración de Socket.io
+io.on("connection", (socket) => {
+  console.log("Usuario conectado");
+
+  socket.on("joinRoom", async (room) => {
+    try {
+      socket.join(room);
+      const [idprof, idalumno] = room.split('-').map(Number);
+      const result = await pool.query(
+        "SELECT content, timestamp, sender FROM messages WHERE idprof = $1 AND idalumno = $2 ORDER BY timestamp ASC",
+        [idprof, idalumno]
+      );
+      socket.emit("previousMessages", result.rows);
+    } catch (error) {
+      console.error("Error al obtener mensajes anteriores:", error);
+    }
+  });
+
+  socket.on("chat message", async (message) => {
+    message.timestamp = new Date().toISOString();
+    await pool.query(
+      "INSERT INTO messages (idprof, idalumno, content, timestamp, sender) VALUES ($1, $2, $3, $4, $5)",
+      [message.idprof, message.idalumno, message.content, message.timestamp, message.sender]
+    );
+
+    socket.broadcast.to(message.room).emit("chat message", {
+      content: message.content,
+      timestamp: message.timestamp,
+      sender: message.sender
+    });
+
+    // Notificar al profesor de un nuevo chat
+    io.to(message.room).emit("newChat", { idprof: message.idprof, idalumno: message.idalumno });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Usuario desconectado");
+  });
+});
+
 server.listen(port, () => {
-  console.log(`Servidor Socket.IO y Express escuchando en el puerto ${port}`);
+  console.log(`Servidor corriendo en http://localhost:${port}`);
 });
