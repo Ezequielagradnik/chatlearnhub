@@ -1,4 +1,4 @@
-import { Server } from "socket.io"; 
+import { Server } from "socket.io";
 import { createServer } from "node:http";
 import express from "express";
 import cors from "cors";
@@ -30,24 +30,24 @@ app.get("/api/chats", async (req, res) => {
     
     if (tipoUsuario === 'alumno') {
       query = `
-        SELECT profesores.ID AS otherUserId, profesores.nombre AS otherUserName, 
+        SELECT profesores.id AS otherUserId, profesores.nombre AS otherUserName, 
                MAX(messages.timestamp) AS lastMessageTimestamp, 
                MAX(messages.content) AS lastMessage
         FROM messages 
-        JOIN profesores ON profesores.ID = messages.idprof
+        JOIN profesores ON profesores.id = messages.idprof
         WHERE messages.idalumno = $1
-        GROUP BY profesores.ID
+        GROUP BY profesores.id
       `;
       params = [userId];
     } else if (tipoUsuario === 'profesor') {
       query = `
-        SELECT alumnos.ID AS otherUserId, alumnos.nombre AS otherUserName, 
+        SELECT alumnos.id AS otherUserId, alumnos.nombre AS otherUserName, 
                MAX(messages.timestamp) AS lastMessageTimestamp, 
                MAX(messages.content) AS lastMessage
         FROM messages 
-        JOIN alumnos ON alumnos.ID = messages.idalumno
+        JOIN alumnos ON alumnos.id = messages.idalumno
         WHERE messages.idprof = $1
-        GROUP BY alumnos.ID
+        GROUP BY alumnos.id
       `;
       params = [userId];
     }
@@ -78,14 +78,14 @@ app.get("/api/messages", async (req, res) => {
 });
 
 // Endpoint para eliminar un mensaje
-app.delete("/api/messages", async (req, res) => {
-  const { idprof, idalumno, timestamp } = req.body;
+app.delete("/api/messages/:id", async (req, res) => {
+  const { id } = req.params;
   try {
     await pool.query(
-      "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2 AND timestamp = $3",
-      [idprof, idalumno, timestamp]
+      "DELETE FROM messages WHERE id = $1",
+      [id]
     );
-    res.sendStatus(200);
+    res.json({ message: "Mensaje eliminado correctamente" });
   } catch (error) {
     console.error("Error al eliminar el mensaje:", error);
     res.status(500).json({ error: "Error al eliminar el mensaje." });
@@ -94,13 +94,18 @@ app.delete("/api/messages", async (req, res) => {
 
 // Endpoint para eliminar un chat (todos los mensajes entre un profesor y un alumno)
 app.delete("/api/chats", async (req, res) => {
-  const { idprof, idalumno } = req.body;
+  const { idprof, idalumno } = req.query;
+
+  if (!idprof || !idalumno) {
+    return res.status(400).json({ error: "Se requieren idprof y idalumno" });
+  }
+
   try {
     await pool.query(
       "DELETE FROM messages WHERE idprof = $1 AND idalumno = $2",
       [idprof, idalumno]
     );
-    res.sendStatus(200);
+    res.json({ message: "Chat eliminado correctamente" });
   } catch (error) {
     console.error("Error al eliminar el chat:", error);
     res.status(500).json({ error: "Error al eliminar el chat." });
